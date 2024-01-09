@@ -1017,22 +1017,76 @@ int main(int argc, char **argv) {
   Sampler sampler;
   build_sampler(&sampler, transformer.config.vocab_size, temperature, topp, rng_seed);
 
-
-
   /* USER CODE END 2 */
-
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint8_t response[12];
+  const char* string0 = "PLL enabled\n";
+  const char* string1 = "PLL configured\n";
+  const char* string2 = "PLLCLK0 selected\n";
+  const char* string3 = "Core clock debug\n";
+  const char* string4 = "PLLCLK0 clock debug\n";
+  const char* string5 = "Running llama\n";
   while (1) {
+    HAL_UART_receive(UART0, response, 1, 0);
+    if (response[0] == 48) {
+        PLL->PLLEN = 1;
+        PLL->POWERGOOD_VNN = 1;
+        HAL_UART_transmit(UART0, string0, 64, 0);
+        //printf("PLL enabled.");
+    } 
+    if (response[0] == 49) {
+        // PLL->RATIO= 70;
+        // PLL->FRACTION= 0;
+        // PLL->MDIV_RATIO= 1;
+        // PLL->ZDIV0_RATIO= 3;
+        // PLL->ZDIV0_RATIO_P5= 0;
+        // PLL->ZDIV1_RATIO= 25;
+        // PLL->ZDIV1_RATIO_P5= 0;
+        // PLL->VCODIV_RATIO= 0;
+        PLL->RATIO= 50;
+        PLL->FRACTION= 0;
+        PLL->MDIV_RATIO= 1;
+        PLL->ZDIV0_RATIO= 10;
+        PLL->ZDIV0_RATIO_P5= 0;
+        PLL->ZDIV1_RATIO= 25;
+        PLL->ZDIV1_RATIO_P5= 0;
+        PLL->VCODIV_RATIO= 0;
+        HAL_UART_transmit(UART0, string1, 64, 0);
+        //printf("PLL configured.");
+    }
+    if (response[0] == 50) {
+        RCC->CLK_SEL = 2;
+        RCC->DEBUG_CLK_SEL = 2;
+        RCC->DEBUG_CLK_DIV = 1000;
+        //UART0->DIV = (333000000 / UART_init_config.baudrate) - 1;
+        UART0->DIV = (SYS_CLK_FREQ / UART_init_config.baudrate) - 1;
+        HAL_UART_transmit(UART0, string2, 64, 0);
+        //printf("PLLCLK0 select.");
+    }
+    if (response[0] == 51) {
+        RCC->DEBUG_CLK_SEL = 4;
+        RCC->DEBUG_CLK_DIV = 1000;
+        HAL_UART_transmit(UART0, string3, 64, 0);
+        //printf("Core clock debug.");
+    } 
+    if (response[0] == 52) {
+        RCC->DEBUG_CLK_SEL = 2;
+        RCC->DEBUG_CLK_DIV = 1000;
+        HAL_UART_transmit(UART0, string4, 64, 0);
+        //printf("PLLCLK0 clock debug.");
+    } 
+    if (response[0] == 53) {
+        HAL_UART_transmit(UART0, string5, 64, 0);
+        sampler.rng_state = CLINT->MTIME;
 
-    sampler.rng_state = CLINT->MTIME;
-
-    // run!
-    generate(&transformer, &tokenizer, &sampler, prompt, steps);
+        // run!
+        generate(&transformer, &tokenizer, &sampler, prompt, steps);
 
 
-    printf("========================================\n");
-    HAL_delay(1000);
+        printf("========================================\n");
+        HAL_delay(1000);
+    }
     /* USER CODE END WHILE */
   }
   /* USER CODE BEGIN 3 */
