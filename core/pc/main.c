@@ -14,7 +14,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
+//#include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -25,6 +25,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 
 //#include "weights.h"
 //#include "tokenizer.h"
@@ -280,7 +281,7 @@ void read_checkpoint(Config* config, TransformerWeights* weights,
 
     ConfigInt version = ((ConfigInt*)curr_ptr)[0];
     if (version != 3) {
-        printf("Bad version %lld, need version 3!\n", version);
+        printf("Bad version %d, need version 3!\n", version);
     }
     curr_ptr += sizeof(ConfigInt);
 
@@ -288,6 +289,8 @@ void read_checkpoint(Config* config, TransformerWeights* weights,
     // read in the Config
     memcpy(config, curr_ptr, sizeof(Config));
     curr_ptr = curr_ptr + sizeof(Config);
+    printf( "Configs %d, %d, %d, %d, %d, %d, %d\n", config->dim, config->hidden_dim, config->n_layers, 
+            config->n_heads, config->n_kv_heads, config->vocab_size, config->seq_len);
 
     // read in flags
     uint8_t shared_classifier = *curr_ptr; // a byte to indicate if the classifier is shared
@@ -759,10 +762,10 @@ int sample(Sampler* sampler, float* logits) {
 
 long time_in_ms() {
     // return time in milliseconds, for benchmarking the model speed
-    // struct timespec time;
-    // clock_gettime(CLOCK_REALTIME, &time);
-    // return time.tv_sec * 1000 + time.tv_nsec / 1000000;
-    return CLINT->MTIME;
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time);
+    return time.tv_sec * 1000 + time.tv_nsec / 1000000;
+    // return CLINT->MTIME;
     // return READ_CSR("time");
 }
 
@@ -877,32 +880,18 @@ int main(int argc, char **argv) {
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
 
-  // set up GPIO registers
-  // GPIO_InitTypeDef GPIO_init_config;
-  // GPIO_init_config.mode = GPIO_MODE_OUTPUT;
-  // GPIO_init_config.pull = GPIO_PULL_NONE;
-  // GPIO_init_config.drive_strength = GPIO_DS_STRONG;
-  // HAL_GPIO_init(GPIOA, &GPIO_init_config, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
-
-  // set up UART registers
-  UART_InitTypeDef UART_init_config;
-  UART_init_config.baudrate = 115200;
-  UART_init_config.mode = UART_MODE_TX_RX;
-  UART_init_config.stopbits = UART_STOPBITS_2;
-  HAL_UART_init(UART0, &UART_init_config);
-
     // default parameters
   float temperature = 0.8f;              // 0.0 = greedy deterministic. 1.0 = original. don't set higher
   float topp = 0.9f;                      // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
   unsigned int steps = 512;                       // number of steps to run for
   char *prompt = "Let me tell you a story about computer.";        // prompt string
-  unsigned long long rng_seed = CLINT->MTIME;        // seed rng with time by default
+  unsigned long long rng_seed = time_in_ms();        // seed rng with time by default
   char *mode = "generate";                // generate|chat
   char *system_prompt = NULL;             // the (optional) system prompt to use in chat mode
 
   // parameter validation/overrides
 
-  if (rng_seed <= 0) rng_seed = (unsigned int)time(NULL);
+  if (rng_seed <= 0) rng_seed = time_in_ms();
   if (temperature < 0.0) temperature = 0.0;
   if (topp < 0.0 || 1.0 < topp) topp = 0.9;
   if (steps < 0) steps = 64;
@@ -929,7 +918,7 @@ int main(int argc, char **argv) {
   /* USER CODE BEGIN WHILE */
   while (1) {
     printf("running generator!\n");
-    sampler.rng_state = CLINT->MTIME;
+    sampler.rng_state = time_in_ms();
 
     // run!
     generate(&transformer, &tokenizer, &sampler, steps);
@@ -937,21 +926,10 @@ int main(int argc, char **argv) {
     printf("Sparse elements: %ld\n", SPARSECOUNT);
     SPARSECOUNT = 0;
     printf("========================================\n");
-    HAL_delay(1000);
+    exit(0);
     /* USER CODE END WHILE */
   }
   /* USER CODE BEGIN 3 */
 
   /* USER CODE END 3 */
-}
-
-/*
- * Main function for secondary harts
- * 
- * Multi-threaded programs should provide their own implementation.
- */
-void __attribute__((weak, noreturn)) __main(void) {
-  while (1) {
-   asm volatile ("wfi");
-  }
 }
