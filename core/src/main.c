@@ -269,13 +269,13 @@ void memory_map_weights(TransformerWeights *w, Config* p, void* ptr, uint8_t sha
 void read_checkpoint(Config* config, TransformerWeights* weights,
                      int* fd, float** data, ssize_t* file_size) {
     unsigned char* curr_ptr = WEIGHTS;
-    uint32_t magic_number = (uint32_t*)curr_ptr[0];
+    uint32_t magic_number = ((uint32_t*)curr_ptr)[0];
     if (magic_number != 0x616b3432) {
         printf("magic number mismatch, weights may be garbage!\n");
     }
     curr_ptr += sizeof(uint32_t);
 
-    int64_t version = (int64_t*)curr_ptr[0];
+    int64_t version = ((int64_t*)curr_ptr)[0];
     if (version != 3) {
         printf("Bad version, need version 3!\n");
     }
@@ -902,15 +902,18 @@ int main(int argc, char **argv) {
   if (steps < 0) steps = 64;
 
   // build the Transformer via the model .bin file
+  printf("building transformer\n");
   Transformer transformer;
   build_transformer(&transformer);
   if (steps == 0) steps = transformer.config.seq_len; // ovrerride to ~max length
 
   // build the Tokenizer via the tokenizer .bin file
+  printf("building tokenizer\n");
   Tokenizer tokenizer;
   build_tokenizer(&tokenizer, transformer.config.vocab_size);
 
   // build the Sampler
+  printf("building sampler\n");
   Sampler sampler;
   build_sampler(&sampler, transformer.config.vocab_size, temperature, topp, rng_seed);
 
@@ -919,7 +922,7 @@ int main(int argc, char **argv) {
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-
+    printf("running generator!\n");
     sampler.rng_state = CLINT->MTIME;
 
     // run!
